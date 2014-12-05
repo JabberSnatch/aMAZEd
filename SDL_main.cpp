@@ -313,6 +313,43 @@ void buildMaze(Maze &maze)
     process_distanceFromStart(maze);
 }
 
+void SDL_DrawCircle(SDL_Surface *surface, Coordinates &center, int R, uint32 colour)
+{
+    int X = 0;
+    int Y = R;
+    int d = R-1;
+    uint32 *buffer = (uint32 *)surface->pixels;
+
+    while(Y >= X)
+    {
+        *(buffer+ (center.X + X)*surface->w + (center.Y + Y)) = colour;
+        *(buffer+ (center.X + Y)*surface->w + (center.Y + X)) = colour;
+        *(buffer+ (center.X - X)*surface->w + (center.Y + Y)) = colour;
+        *(buffer+ (center.X - Y)*surface->w + (center.Y + X)) = colour;
+        *(buffer+ (center.X + X)*surface->w + (center.Y - Y)) = colour;
+        *(buffer+ (center.X + Y)*surface->w + (center.Y - X)) = colour;
+        *(buffer+ (center.X - X)*surface->w + (center.Y - Y)) = colour;
+        *(buffer+ (center.X - Y)*surface->w + (center.Y - X)) = colour;
+
+        if(d >= 2*X)
+        {
+            d = d-2*X-1;
+            X++;
+        }
+        else if(d < 2*(R-Y))
+        {
+            d = d+2*Y-1;
+            Y--;
+        }
+        else
+        {
+            d = d+2*(Y-X-1);
+            Y--;
+            X++;
+        }
+    }
+}
+
 void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
 {
     uint32 BLACK = 0x00000000;
