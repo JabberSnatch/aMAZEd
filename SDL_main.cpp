@@ -19,6 +19,7 @@ struct Cell
 {
     Coordinates position;
     uint32 distFromStart;
+    uint32 visited;
     Cell *neighbours[4];
 };
 
@@ -27,6 +28,7 @@ struct Maze
     uint32 width;
     uint32 height;
     Coordinates start;
+    uint32 maxDistance;
     Cell **cells;
 };
 
@@ -37,114 +39,67 @@ struct RGBcolor
     uint8 blue;
 };
 
-void buildMaze(Maze &maze)
-{
-    maze.cells = (Cell **)malloc(sizeof(Cell*)*maze.height);
-
-    // Creating all of the cells with closed doors
-    for(uint32 X = 0;
-        X < maze.height;
-        ++X)
-    {
-        maze.cells[X] = (Cell *)malloc(sizeof(Cell)*maze.width);
-        for(uint32 Y = 0;
-            Y < maze.width;
-            ++Y)
-        {
-            Cell dummy = {};
-            for(int N = 0;
-                N < 4;
-                ++N)
-            {
-                dummy.neighbours[N] = NULL;
-                dummy.distFromStart = 0;
-                dummy.position.X = X;
-                dummy.position.Y = Y;
-            }
-            maze.cells[X][Y] = dummy;
-        }
-    }
-
-    // Generate the maze
-    printf("Generating the maze..\n");
-    uint32 visitedCells[maze.height][maze.width];
-    for(uint32 X = 0;
-        X < maze.height;
-        ++X)
-    {
-        for(uint32 Y = 0;
-            Y < maze.width;
-            ++Y)
-        {
-            visitedCells[X][Y] = 0;
-        }
-    }
-    std::stack<Coordinates> backtrack;
-    Coordinates cursor = {};
-    cursor.X = rand() % maze.height;
-    cursor.Y = rand() % maze.width;
-
-    maze.start = cursor;
-
-    backtrack.push(cursor);
-    visitedCells[cursor.X][cursor.Y]++;
-    while(!backtrack.empty())
-    {
-        bool unvisitedNeighbours = false;
-        unvisitedNeighbours |= (!visitedCells[cursor.X+1][cursor.Y] && cursor.X+1 < maze.height);
-        unvisitedNeighbours |= (!visitedCells[cursor.X-1][cursor.Y] && cursor.X-1 < maze.height);
-        unvisitedNeighbours |= (!visitedCells[cursor.X][cursor.Y+1] && cursor.Y+1 < maze.width);
-        unvisitedNeighbours |= (!visitedCells[cursor.X][cursor.Y-1] && cursor.Y-1 < maze.width);
-
-        if(unvisitedNeighbours)
-        {
-            Coordinates next = cursor;
-            int direction = 0;
-
-            while(  next.X >= maze.height ||
-                    next.Y >= maze.width ||
-                    visitedCells[next.X][next.Y] )
-            {
-                direction = rand() % 4;
-                next = cursor;
-
-                switch(direction)
-                {
-                case 0:
-                    next.X--;
-                    break;
-                case 1:
-                    next.Y++;
-                    break;
-                case 2:
-                    next.X++;
-                    break;
-                case 3:
-                    next.Y--;
-                    break;
-                }
-            }
-
-            backtrack.push(next);
-            visitedCells[next.X][next.Y]++;
-            maze.cells[cursor.X][cursor.Y].neighbours[direction] = &maze.cells[next.X][next.Y];
-            maze.cells[next.X][next.Y].neighbours[(direction+2)%4] = &maze.cells[cursor.X][cursor.Y];
-            cursor = next;
-        }
-        else
-        {
-            cursor = backtrack.top();
-            backtrack.pop();
-        }
-    }
-    printf("Maze generated\n");
+int randomDir_uniform() {
+    return rand() % 4;
 }
 
-uint32 process_distanceFromStart(Maze &maze)
+int randomDir_weird() {
+    return (rand()%2 + rand()%2 + rand()%2 + rand()%2)%4;
+}
+
+int randomDir_horizontal(int range) {
+    int dir = rand()%range;
+
+    int ret;
+    if(dir < 1)
+        ret = 0;
+    if(dir > 0 && dir < range/2)
+        ret = 1;
+    if(dir > range/2-1 && dir < range/2+1)
+        ret = 2;
+    if(dir > range/2 && dir < range)
+        ret = 3;
+
+    return ret;
+}
+
+int randomDir_vertical(int range) {
+    int dir = rand()%range;
+
+    int ret;
+    if(dir < 1)
+        ret = 1;
+    if(dir > 0 && dir < range/2)
+        ret = 0;
+    if(dir > range/2-1 && dir < range/2+1)
+        ret = 3;
+    if(dir > range/2 && dir < range)
+        ret = 2;
+
+    return ret;
+}
+
+int randomDir_changing(int prevDir) {
+    int ret = 0;
+    switch(prevDir)
+    {
+    case 0:
+    case 2:
+        ret = randomDir_horizontal(100);
+        break;
+    case 1:
+    case 3:
+        ret = randomDir_vertical(100);
+        break;
+    }
+
+    return ret;
+}
+
+void process_distanceFromStart(Maze &maze)
 {
     uint32 distance = 0, maxDistance = 0;
 
-    uint32 visitedCells[maze.height][maze.width];
     for(uint32 X = 0;
         X < maze.height;
         ++X)
@@ -153,7 +108,7 @@ uint32 process_distanceFromStart(Maze &maze)
             Y < maze.width;
             ++Y)
         {
-            visitedCells[X][Y] = 0;
+            maze.cells[X][Y].visited = 0;
         }
     }
     std::stack<Cell *> backtrack;
@@ -162,7 +117,7 @@ uint32 process_distanceFromStart(Maze &maze)
     while(!backtrack.empty())
     {
         Cell *cursor = backtrack.top();
-        visitedCells[cursor->position.X][cursor->position.Y]++;
+        maze.cells[cursor->position.X][cursor->position.Y].visited++;
 
         bool unvisitedNeighbours = false;
         for (int i = 0; i < 4; ++i)
@@ -170,7 +125,7 @@ uint32 process_distanceFromStart(Maze &maze)
             Cell *neighbour = cursor->neighbours[i];
             if(neighbour != NULL)
             {
-                unvisitedNeighbours |= (visitedCells[neighbour->position.X][neighbour->position.Y] == 0);
+                unvisitedNeighbours |= (maze.cells[neighbour->position.X][neighbour->position.Y].visited == 0);
             }
         }
 
@@ -184,10 +139,10 @@ uint32 process_distanceFromStart(Maze &maze)
                 next = cursor->neighbours[direction];
             }
 
-            if(visitedCells[next->position.X][next->position.Y] == 0)
+            if(maze.cells[next->position.X][next->position.Y].visited == 0)
             {
                 backtrack.push(next);
-                visitedCells[next->position.X][next->position.Y]++;
+                maze.cells[next->position.X][next->position.Y].visited++;
                 cursor->distFromStart = distance++;
                 if(distance > maxDistance)
                 {
@@ -214,7 +169,148 @@ uint32 process_distanceFromStart(Maze &maze)
         printf("\n");*/
     }
 
-    return maxDistance;
+    maze.maxDistance = maxDistance;
+}
+
+void generate_recursiveBacktrack(Maze &maze)
+{
+    std::stack<Coordinates> backtrack;
+    Coordinates cursor = {};
+    cursor.X = rand() % maze.height;
+    cursor.Y = rand() % maze.width;
+
+    maze.start = cursor;
+
+    backtrack.push(cursor);
+    maze.cells[cursor.X][cursor.Y].visited++;
+    while(!backtrack.empty())
+    {
+        bool unvisitedNeighbours = false;
+
+        if(cursor.X < maze.height-1)
+        unvisitedNeighbours |= (!maze.cells[cursor.X+1][cursor.Y].visited && cursor.X+1 < maze.height);
+        if(cursor.X > 0)
+        unvisitedNeighbours |= (!maze.cells[cursor.X-1][cursor.Y].visited && cursor.X-1 < maze.height);
+        if(cursor.Y < maze.width-1)
+        unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y+1].visited && cursor.Y+1 < maze.width);
+        if(cursor.Y > 0)
+        unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y-1].visited && cursor.Y-1 < maze.width);
+
+        if(unvisitedNeighbours)
+        {
+            Coordinates next = cursor;
+            int direction = 0;
+
+            while(  next.X >= maze.height ||
+                    next.Y >= maze.width ||
+                    maze.cells[next.X][next.Y].visited )
+            {
+                direction = randomDir_uniform();
+                next = cursor;
+
+                switch(direction)
+                {
+                case 0:
+                    next.X--;
+                    break;
+                case 1:
+                    next.Y++;
+                    break;
+                case 2:
+                    next.X++;
+                    break;
+                case 3:
+                    next.Y--;
+                    break;
+                }
+            }
+
+            backtrack.push(next);
+            maze.cells[next.X][next.Y].visited++;
+            maze.cells[cursor.X][cursor.Y].neighbours[direction] = &maze.cells[next.X][next.Y];
+            maze.cells[next.X][next.Y].neighbours[(direction+2)%4] = &maze.cells[cursor.X][cursor.Y];
+            cursor = next;
+        }
+        else
+        {
+            cursor = backtrack.top();
+            backtrack.pop();
+        }
+    }
+}
+
+void generate_binaryTree(Maze &maze)
+{
+    for(uint32 X = 0;
+        X < maze.height;
+        ++X)
+    {
+        for(uint32 Y = 0;
+            Y < maze.width;
+            ++Y)
+        {
+            if(X != 0 || Y != 0)
+            {
+                Coordinates target;
+                target.X = X;
+                target.Y = Y;
+
+                int direction = (rand() % 2 + 3)%4; // Yields either 0 or 3
+                if(X == 0) direction = 3;
+                if(Y == 0) direction = 0;
+
+                switch(direction)
+                {
+                case 0:
+                    target.X--;
+                    break;
+                case 3:
+                    target.Y--;
+                    break;
+                }
+
+                maze.cells[X][Y].neighbours[direction] = &maze.cells[target.X][target.Y];
+                maze.cells[target.X][target.Y].neighbours[(direction+2)%4] = &maze.cells[X][Y];
+            }
+        }
+    }
+}
+
+void buildMaze(Maze &maze)
+{
+    maze.cells = (Cell **)malloc(sizeof(Cell*)*maze.height);
+
+    // Creating all of the cells with closed doors
+    for(uint32 X = 0;
+        X < maze.height;
+        ++X)
+    {
+        maze.cells[X] = (Cell *)malloc(sizeof(Cell)*maze.width);
+        for(uint32 Y = 0;
+            Y < maze.width;
+            ++Y)
+        {
+            Cell dummy = {};
+            for(int N = 0;
+                N < 4;
+                ++N)
+            {
+                dummy.neighbours[N] = NULL;
+                dummy.distFromStart = 0;
+                dummy.visited = 0;
+                dummy.position.X = X;
+                dummy.position.Y = Y;
+            }
+            maze.cells[X][Y] = dummy;
+        }
+    }
+
+    // Generate the maze
+    printf("Generating the maze..\n");
+    generate_recursiveBacktrack(maze);
+    printf("Maze generated\n");
+
+    process_distanceFromStart(maze);
 }
 
 void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
@@ -223,41 +319,73 @@ void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
     uint32 WHITE = 0xffffffff;
 
     uint8 *row = (uint8 *)buffer->pixels;
+    uint8 *nextRow = row + buffer->pitch;
     for(uint32 X = 0;
         X < maze.height;
         ++X)
     {
         uint32 *pixel = (uint32 *)row;
-        // Run three times through each row of cells, to render each row of pixels
-
-        // TODO(samu): merge the two loops
+        uint32 *nextPixel = (uint32 *)nextRow;
         for(uint32 Y = 0;
             Y < maze.width;
             ++Y)
         {
             *pixel++ = BLACK;
             *pixel++ = (maze.cells[X][Y].neighbours[0] == NULL) ? BLACK : WHITE;
+            *nextPixel++ = (maze.cells[X][Y].neighbours[3] == NULL) ? BLACK : WHITE;
+            *nextPixel++ = WHITE;
         }
         *pixel++ = BLACK;
+        *nextPixel++ = (maze.cells[X][maze.width-1].neighbours[1] == NULL) ? BLACK : WHITE;
 
-        row += buffer->pitch;
+        row += buffer->pitch*2;
+        nextRow += buffer->pitch*2;
+    }
+}
 
+void renderMaze_WallsShaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGBcolor maxColor)
+{
+    uint32 BLACK = 0x00000000;
+    uint32 COLOUR = 0xffffffff;
+
+    uint32 maxDistance = maze.maxDistance;
+
+    uint8 *row = (uint8 *)buffer->pixels;
+    uint8 *nextRow = row + buffer->pitch;
+    for(uint32 X = 0;
+        X < maze.height;
+        ++X)
+    {
+        uint32 *pixel = (uint32 *)row;
+        uint32 *nextPixel = (uint32 *)nextRow;
         for(uint32 Y = 0;
             Y < maze.width;
             ++Y)
         {
-            *pixel++ = (maze.cells[X][Y].neighbours[3] == NULL) ? BLACK : WHITE;
-            *pixel++ = WHITE;
-        }
-        *pixel++ = (maze.cells[X][maze.width-1].neighbours[1] == NULL) ? BLACK : WHITE;
+            double coeff = (double)maze.cells[X][Y].distFromStart / (double)maxDistance;
+            RGBcolor cellColor;
+            cellColor.red = (startColor.red + (uint8)(coeff * (maxColor.red - startColor.red)))%256;
+            cellColor.green = (startColor.green + (uint8)(coeff * (maxColor.green - startColor.green)))%256;
+            cellColor.blue = (startColor.blue + (uint8)(coeff * (maxColor.blue - startColor.blue)))%256;
 
-        row += buffer->pitch;
+            COLOUR = ((cellColor.red << 24) | (cellColor.green << 16) | (cellColor.blue << 8));
+
+            *pixel++ = BLACK;
+            *pixel++ = (maze.cells[X][Y].neighbours[0] == NULL) ? BLACK : COLOUR;
+            *nextPixel++ = (maze.cells[X][Y].neighbours[3] == NULL) ? BLACK : COLOUR;
+            *nextPixel++ = COLOUR;
+        }
+        *pixel++ = BLACK;
+        *nextPixel++ = (maze.cells[X][maze.width-1].neighbours[1] == NULL) ? BLACK : COLOUR;
+
+        row += buffer->pitch*2;
+        nextRow += buffer->pitch*2;
     }
 }
 
 void renderMaze_Shaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGBcolor maxColor)
 {
-    uint32 maxDistance = process_distanceFromStart(maze);
+    uint32 maxDistance = maze.maxDistance;
 
     uint8 *row = (uint8 *)buffer->pixels;
     for(uint32 X = 0;
@@ -306,9 +434,13 @@ void renderGradiant(SDL_Surface *buffer)
 }
 
 int main (int argc, char** argv) {
+    bool randomCol = false;
     if(argc < 4) {
         printf("usage: aMAZEd <mazeWidth> <mazeHeight> <fileName>");
         return 0;
+    }
+    if(argc > 4) {
+        randomCol = true;
     }
 
     srand(time(NULL));
@@ -322,17 +454,31 @@ int main (int argc, char** argv) {
     Maze maze = {};
     maze.width = mazeWidth;
     maze.height = mazeHeight;
+
     buildMaze(maze);
 
     RGBcolor startColor;
-    startColor.red = rand() % 255;
-    startColor.green = rand() % 255;
-    startColor.blue = rand() % 255;
-
     RGBcolor maxColor;
-    maxColor.red = rand() % 255;
-    maxColor.green = rand() % 255;
-    maxColor.blue = rand() % 255;
+    if(randomCol)
+    {
+        startColor.red = rand() % 255;
+        startColor.green = rand() % 255;
+        startColor.blue = rand() % 255;
+
+        maxColor.red = rand() % 255;
+        maxColor.green = rand() % 255;
+        maxColor.blue = rand() % 255;
+    }
+    else
+    {
+        startColor.red = 0xff;
+        startColor.green = 0xff;
+        startColor.blue = 0xff;
+
+        maxColor.red = 0x00;
+        maxColor.green = 0x00;
+        maxColor.blue = 0x00;
+    }
 
     /*
     RGBcolor startColor;
@@ -356,9 +502,11 @@ int main (int argc, char** argv) {
                                   0x00ff0000,
                                   0x0000ff00,
                                   0x000000ff);
-
     renderMaze_Walls(mazeSurface, maze);
     SDL_SaveBMP(mazeSurface, "walls.bmp");
+
+    renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
+    SDL_SaveBMP(mazeSurface, "walls_shaded.bmp");
 
     mazeSurface = SDL_CreateRGBSurface(0,
                                   mazeWidth,
@@ -368,7 +516,7 @@ int main (int argc, char** argv) {
                                   0x00ff0000,
                                   0x0000ff00,
                                   0x000000ff);
-    renderMaze_Shaded(mazeSurface, maze, maxColor, startColor);
+    renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
     SDL_SaveBMP(mazeSurface, "shade.bmp");
 
     SDL_SaveBMP(mazeSurface, filename);
