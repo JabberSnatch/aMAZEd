@@ -11,8 +11,8 @@ typedef uint64_t uint64;
 
 struct Coordinates
 {
-    uint32 X;
-    uint32 Y;
+    int X;
+    int Y;
 };
 
 struct Cell
@@ -350,6 +350,34 @@ void SDL_DrawCircle(SDL_Surface *surface, Coordinates &center, int R, uint32 col
     }
 }
 
+void SDL_DrawLine(SDL_Surface *surface, Coordinates A, Coordinates B)
+{
+    int dX = (B.X - A.X);
+    int dY = (B.Y - A.Y);
+    uint32 *buffer = (uint32 *)surface->pixels;
+
+    if(dX >= dY)
+    {
+        for(int X = A.X;
+            X <= B.X;
+            X++)
+        {
+            int Y = A.Y + dY*(X - A.X)/dX;
+            *(buffer+ (X)*surface->w + (Y)) = 0xffffffff;
+        }
+    }
+    else
+    {
+        for(int Y = A.Y;
+            Y <= B.Y;
+            Y++)
+        {
+            int X = A.X + dX*(Y - A.Y)/dY;
+            *(buffer+ (X)*surface->w + (Y)) = 0xffffffff;
+        }
+    }
+}
+
 void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
 {
     uint32 BLACK = 0x00000000;
@@ -492,6 +520,32 @@ int main (int argc, char** argv) {
     maze.width = mazeWidth;
     maze.height = mazeHeight;
 
+    mazeSurface = SDL_CreateRGBSurface(0,
+                                  100,
+                                  100,
+                                  32,
+                                  0xff000000,
+                                  0x00ff0000,
+                                  0x0000ff00,
+                                  0x000000ff);
+
+    Coordinates A = {}, B = {}, C = {};
+    A.X = 50;
+    A.Y = 20;
+    B.X = 99;
+    B.Y = 50;
+    C.X = 25;
+    C.Y = 70;
+
+    // TODO(samu): Make SDL_DrawLine commutative
+    SDL_DrawLine(mazeSurface, B, A);
+    SDL_DrawLine(mazeSurface, C, A);
+    SDL_DrawLine(mazeSurface, B, C);
+    SDL_SaveBMP(mazeSurface, "test_line.bmp");
+
+
+
+#if 0
     buildMaze(maze);
 
     RGBcolor startColor;
@@ -557,6 +611,7 @@ int main (int argc, char** argv) {
     SDL_SaveBMP(mazeSurface, "shade.bmp");
 
     SDL_SaveBMP(mazeSurface, filename);
+#endif
 
     atexit(SDL_Quit);
 
