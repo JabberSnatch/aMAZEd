@@ -309,11 +309,19 @@ void buildMaze(Maze &maze)
     }
 
     // Generate the maze
-    printf("Generating the maze..\n");
     generate_recursiveBacktrack(maze);
-    printf("Maze generated\n");
 
     process_distanceFromStart(maze);
+}
+
+void destroyMaze(Maze &maze)
+{
+    for(int i = 0; i < maze.height; i++)
+    {
+        free(maze.cells[i]);
+    }
+    free(maze.cells);
+    maze = {};
 }
 
 void SDL_DrawCircle(SDL_Surface *surface, Coordinates &center, int R, uint32 colour)
@@ -534,6 +542,16 @@ void renderGradiant(SDL_Surface *buffer)
 }
 
 int main (int argc, char** argv) {
+
+/*
+    TODO (samu): command line options
+        * -R [walls|shaded] : chose the way the maze is going to be displayed
+        * -r : random
+        * -c <start> <end> : colorpicking
+        * -b <nb>: batch generation
+        * -v : verbose
+ */
+
     bool randomCol = false;
     if(argc < 4) {
         printf("usage: aMAZEd <mazeWidth> <mazeHeight> <fileName>");
@@ -549,13 +567,88 @@ int main (int argc, char** argv) {
     int mazeHeight = atoi(argv[2]);
     const char* filename = argv[3];
 
+#if 1
+    for(int i = 0; i < 200; i++)
+    {
+        char filename [50] = "";
+        sprintf(filename, "wallpapers\\%d.bmp", i);
+
+
     SDL_Surface* mazeSurface;
 
     Maze maze = {};
     maze.width = mazeWidth;
     maze.height = mazeHeight;
 
-#if 0
+    printf("-%d:\n", i);
+    printf("Building the maze..\n");
+    buildMaze(maze);
+    printf("Maze built\n");
+
+    RGBcolor startColor;
+    RGBcolor maxColor;
+    if(randomCol)
+    {
+        startColor.red = rand() % 255;
+        startColor.green = rand() % 255;
+        startColor.blue = rand() % 255;
+
+        maxColor.red = rand() % 255;
+        maxColor.green = rand() % 255;
+        maxColor.blue = rand() % 255;
+    }
+    else
+    {
+        startColor.red = 0x00;
+        startColor.green = 0x56;
+        startColor.blue = 0x1b;
+
+        maxColor.red = 0x8a;
+        maxColor.green = 0x33;
+        maxColor.blue = 0x24;
+    }
+
+    SDL_Init(SDL_INIT_VIDEO);
+
+//    mazeSurface = SDL_CreateRGBSurface(0,
+//                                  mazeWidth * 2 + 1,
+//                                  mazeHeight * 2 + 1,
+//                                  32,
+//                                  0xff000000,
+//                                  0x00ff0000,
+//                                  0x0000ff00,
+//                                  0x000000ff);
+//    renderMaze_Walls(mazeSurface, maze);
+//    //SDL_SaveBMP(mazeSurface, "walls.bmp");
+//
+//    renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
+    //SDL_SaveBMP(mazeSurface, "walls_shaded.bmp");
+
+    mazeSurface = SDL_CreateRGBSurface(0,
+                                  mazeWidth,
+                                  mazeHeight,
+                                  32,
+                                  0xff000000,
+                                  0x00ff0000,
+                                  0x0000ff00,
+                                  0x000000ff);
+    printf("Rendering the maze.. \n");
+    renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
+    printf("Maze rendered\n");
+    //SDL_SaveBMP(mazeSurface, "shade.bmp");
+
+    printf("Saving the maze to a file..\n");
+    if(SDL_SaveBMP(mazeSurface, filename))
+    {
+        printf("Image couldn't be saved : \n%s\n", SDL_GetError());
+    }
+    printf("Maze saved\n\n");
+
+    destroyMaze(maze);
+    SDL_FreeSurface(mazeSurface);
+    }
+
+#else
     mazeSurface = SDL_CreateRGBSurface(0,
                                   1001,
                                   1001,
@@ -603,77 +696,6 @@ int main (int argc, char** argv) {
         SDL_DrawCircle(mazeSurface, O, R+10, ((red << 24) | (green << 16) | (blue << 8)));
     }
     SDL_SaveBMP(mazeSurface, "test_line.bmp");
-#else
-
-    buildMaze(maze);
-
-    RGBcolor startColor;
-    RGBcolor maxColor;
-    if(randomCol)
-    {
-        startColor.red = rand() % 255;
-        startColor.green = rand() % 255;
-        startColor.blue = rand() % 255;
-
-        maxColor.red = rand() % 255;
-        maxColor.green = rand() % 255;
-        maxColor.blue = rand() % 255;
-    }
-    else
-    {
-        startColor.red = 0x00;
-        startColor.green = 0x56;
-        startColor.blue = 0x1b;
-
-        maxColor.red = 0x8a;
-        maxColor.green = 0x33;
-        maxColor.blue = 0x24;
-    }
-
-    /*
-    RGBcolor startColor;
-    startColor.red = 0xff;
-    startColor.green = 0xff;
-    startColor.blue = 0xff;
-
-    RGBcolor maxColor;
-    maxColor.red = 0x00;
-    maxColor.green = 0x00;
-    maxColor.blue = 0x00;
-    */
-
-    SDL_Init(SDL_INIT_VIDEO);
-
-    for (int i = 0; i < 50; i++)
-    {
-    mazeSurface = SDL_CreateRGBSurface(0,
-                                  mazeWidth * 2 + 1,
-                                  mazeHeight * 2 + 1,
-                                  32,
-                                  0xff000000,
-                                  0x00ff0000,
-                                  0x0000ff00,
-                                  0x000000ff);
-    renderMaze_Walls(mazeSurface, maze);
-    //SDL_SaveBMP(mazeSurface, "walls.bmp");
-
-    renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
-    //SDL_SaveBMP(mazeSurface, "walls_shaded.bmp");
-
-    mazeSurface = SDL_CreateRGBSurface(0,
-                                  mazeWidth,
-                                  mazeHeight,
-                                  32,
-                                  0xff000000,
-                                  0x00ff0000,
-                                  0x0000ff00,
-                                  0x000000ff);
-    renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
-    //SDL_SaveBMP(mazeSurface, "shade.bmp");
-
-    SDL_SaveBMP(mazeSurface, filename);
-
-    }
 #endif
 
     SDL_Quit();
