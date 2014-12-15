@@ -3,6 +3,9 @@
 #include "stdio.h"
 #include "time.h"
 #include <stack>
+#include <cmath>
+
+#define PI 3.14159265359
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;
@@ -350,32 +353,64 @@ void SDL_DrawCircle(SDL_Surface *surface, Coordinates &center, int R, uint32 col
     }
 }
 
-void SDL_DrawLine(SDL_Surface *surface, Coordinates A, Coordinates B)
+void SDL_DrawLine(SDL_Surface *surface, Coordinates A, Coordinates B, uint32 colour)
 {
-    int dX = (B.X - A.X);
-    int dY = (B.Y - A.Y);
     uint32 *buffer = (uint32 *)surface->pixels;
+    int X = A.X;
+    int Y = A.X;
+    int W = B.X - A.X;
+    int H = B.Y - A.Y;
+    int dX1 = 0-(W<0)+(W>0);
+    int dX2 = dX1;
+    int dY1 = 0-(H<0)+(H>0);
+    int dY2 = 0;
 
-    if(dX >= dY)
+    int longest = abs(W);
+    int shortest = abs(H);
+    if(longest < shortest)
     {
-        for(int X = A.X;
-            X <= B.X;
-            X++)
+        longest = abs(H);
+        shortest = abs(W);
+        dY2 = 0-(H<0)+(H>0);
+        dX2 = 0;
+    }
+
+    int numerator = longest/2;
+    for(int i = 0; i <= longest; i++)
+    {
+        *(buffer+ (X)*surface->w + (Y)) = colour;
+        numerator += shortest;
+        if(numerator>longest)
         {
-            int Y = A.Y + dY*(X - A.X)/dX;
-            *(buffer+ (X)*surface->w + (Y)) = 0xffffffff;
+            numerator -= longest;
+            X += dX1;
+            Y += dY1;
+        }
+        else
+        {
+            X += dX2;
+            Y += dY2;
         }
     }
-    else
-    {
-        for(int Y = A.Y;
-            Y <= B.Y;
-            Y++)
-        {
-            int X = A.X + dX*(Y - A.Y)/dY;
-            *(buffer+ (X)*surface->w + (Y)) = 0xffffffff;
-        }
-    }
+}
+
+void SDL_DrawOrientedLine(SDL_Surface *surface,
+                          Coordinates O,
+                          double angle,
+                          int start,
+                          int length,
+                          uint32 colour)
+{
+    Coordinates A = {}, B = {};
+    double sine = sin(angle);
+    double cosine = cos(angle);
+
+    A.X = O.X + round(sine*start);
+    A.Y = O.Y + round(cosine*start);
+    B.X = O.X + round(sine*(start+length));
+    B.Y = O.Y + round(cosine*(start+length));
+
+    SDL_DrawLine(surface, A, B, colour);
 }
 
 void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
@@ -520,9 +555,10 @@ int main (int argc, char** argv) {
     maze.width = mazeWidth;
     maze.height = mazeHeight;
 
+#if 0
     mazeSurface = SDL_CreateRGBSurface(0,
-                                  100,
-                                  100,
+                                  1001,
+                                  1001,
                                   32,
                                   0xff000000,
                                   0x00ff0000,
@@ -534,18 +570,41 @@ int main (int argc, char** argv) {
     A.Y = 20;
     B.X = 99;
     B.Y = 50;
-    C.X = 25;
-    C.Y = 70;
+    C.X = 4000;
+    C.Y = 4000;
 
     // TODO(samu): Make SDL_DrawLine commutative
-    SDL_DrawLine(mazeSurface, B, A);
-    SDL_DrawLine(mazeSurface, C, A);
-    SDL_DrawLine(mazeSurface, B, C);
+    //SDL_DrawLine(mazeSurface, A, B);
+    //SDL_DrawLine(mazeSurface, C, A);
+    //SDL_DrawLine(mazeSurface, B, C);
+    //SDL_DrawCircle(mazeSurface, C, 3000, 0xaaaaaa00);
+
+    Coordinates O = {};
+    O.X = 500;
+    O.Y = 500;
+    uint8 red = 0x00;
+    uint8 blue = 0xff;
+    uint8 green = 0x00;
+    int step = floor(255.0f / 85.0f);
+    for(int R = 0; R < 255; R++)
+    {
+        if(R < 85){
+            blue -= step;
+            green += step;
+        }
+        else if(R < 170){
+            green -= step;
+            red += step;
+        }
+        else {
+            red -= step;
+            blue += step;
+        }
+        SDL_DrawCircle(mazeSurface, O, R+10, ((red << 24) | (green << 16) | (blue << 8)));
+    }
     SDL_SaveBMP(mazeSurface, "test_line.bmp");
+#else
 
-
-
-#if 0
     buildMaze(maze);
 
     RGBcolor startColor;
@@ -562,13 +621,13 @@ int main (int argc, char** argv) {
     }
     else
     {
-        startColor.red = 0xff;
-        startColor.green = 0xff;
-        startColor.blue = 0xff;
+        startColor.red = 0x00;
+        startColor.green = 0x56;
+        startColor.blue = 0x1b;
 
-        maxColor.red = 0x00;
-        maxColor.green = 0x00;
-        maxColor.blue = 0x00;
+        maxColor.red = 0x8a;
+        maxColor.green = 0x33;
+        maxColor.blue = 0x24;
     }
 
     /*
@@ -585,6 +644,8 @@ int main (int argc, char** argv) {
 
     SDL_Init(SDL_INIT_VIDEO);
 
+    for (int i = 0; i < 50; i++)
+    {
     mazeSurface = SDL_CreateRGBSurface(0,
                                   mazeWidth * 2 + 1,
                                   mazeHeight * 2 + 1,
@@ -594,10 +655,10 @@ int main (int argc, char** argv) {
                                   0x0000ff00,
                                   0x000000ff);
     renderMaze_Walls(mazeSurface, maze);
-    SDL_SaveBMP(mazeSurface, "walls.bmp");
+    //SDL_SaveBMP(mazeSurface, "walls.bmp");
 
     renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
-    SDL_SaveBMP(mazeSurface, "walls_shaded.bmp");
+    //SDL_SaveBMP(mazeSurface, "walls_shaded.bmp");
 
     mazeSurface = SDL_CreateRGBSurface(0,
                                   mazeWidth,
@@ -608,12 +669,14 @@ int main (int argc, char** argv) {
                                   0x0000ff00,
                                   0x000000ff);
     renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
-    SDL_SaveBMP(mazeSurface, "shade.bmp");
+    //SDL_SaveBMP(mazeSurface, "shade.bmp");
 
     SDL_SaveBMP(mazeSurface, filename);
+
+    }
 #endif
 
-    atexit(SDL_Quit);
+    SDL_Quit();
 
     return 0;
 }
