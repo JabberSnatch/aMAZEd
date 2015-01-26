@@ -205,16 +205,16 @@ void generate_recursiveBacktrack(Maze &maze, int (*randomDir)())
         bool unvisitedNeighbours = false;
 
         if(cursor.X < maze.height-1)
-            unvisitedNeighbours |= (!maze.cells[cursor.X+1][cursor.Y].visited && 
+            unvisitedNeighbours |= (!maze.cells[cursor.X+1][cursor.Y].visited &&
                                     cursor.X+1 < maze.height);
         if(cursor.X > 0)
-            unvisitedNeighbours |= (!maze.cells[cursor.X-1][cursor.Y].visited && 
+            unvisitedNeighbours |= (!maze.cells[cursor.X-1][cursor.Y].visited &&
                                     cursor.X-1 < maze.height);
         if(cursor.Y < maze.width-1)
-            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y+1].visited && 
+            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y+1].visited &&
                                     cursor.Y+1 < maze.width);
         if(cursor.Y > 0)
-            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y-1].visited && 
+            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y-1].visited &&
                                     cursor.Y-1 < maze.width);
 
         if(unvisitedNeighbours)
@@ -339,7 +339,6 @@ void destroyMaze(Maze &maze)
         free(maze.cells[i]);
     }
     free(maze.cells);
-    maze = {};
 }
 
 void SDL_DrawCircle(SDL_Surface *surface, Coordinates &center, int R, uint32 colour)
@@ -792,10 +791,10 @@ int main (int argc, char* argv[]) {
             printf("Image couldn't be saved : \n%s\n", SDL_GetError());
         }
         printf("Maze saved\n\n");
-    }
 
-    destroyMaze(maze);
-    SDL_FreeSurface(mazeSurface);
+        destroyMaze(maze);
+        SDL_FreeSurface(mazeSurface);
+    }
 
 #else
     mazeSurface = SDL_CreateRGBSurface(0,
