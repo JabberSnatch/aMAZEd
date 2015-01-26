@@ -19,8 +19,8 @@ typedef uint64_t uint64;
 
 struct Coordinates
 {
-    int X;
-    int Y;
+    uint32 X;
+    uint32 Y;
 };
 
 struct Cell
@@ -196,13 +196,17 @@ void generate_recursiveBacktrack(Maze &maze)
         bool unvisitedNeighbours = false;
 
         if(cursor.X < maze.height-1)
-        unvisitedNeighbours |= (!maze.cells[cursor.X+1][cursor.Y].visited && cursor.X+1 < maze.height);
+            unvisitedNeighbours |= (!maze.cells[cursor.X+1][cursor.Y].visited && 
+                                    cursor.X+1 < maze.height);
         if(cursor.X > 0)
-        unvisitedNeighbours |= (!maze.cells[cursor.X-1][cursor.Y].visited && cursor.X-1 < maze.height);
+            unvisitedNeighbours |= (!maze.cells[cursor.X-1][cursor.Y].visited && 
+                                    cursor.X-1 < maze.height);
         if(cursor.Y < maze.width-1)
-        unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y+1].visited && cursor.Y+1 < maze.width);
+            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y+1].visited && 
+                                    cursor.Y+1 < maze.width);
         if(cursor.Y > 0)
-        unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y-1].visited && cursor.Y-1 < maze.width);
+            unvisitedNeighbours |= (!maze.cells[cursor.X][cursor.Y-1].visited && 
+                                    cursor.Y-1 < maze.width);
 
         if(unvisitedNeighbours)
         {
@@ -321,7 +325,7 @@ void buildMaze(Maze &maze)
 
 void destroyMaze(Maze &maze)
 {
-    for(int i = 0; i < maze.height; i++)
+    for(uint32 i = 0; i < maze.height; i++)
     {
         free(maze.cells[i]);
     }
@@ -546,14 +550,14 @@ void renderGradiant(SDL_Surface *buffer)
     }
 }
 
-bool AreStringsEqual(char* str1, char* str2)
+bool AreStringsEqual(const char* str1, const char* str2)
 {
     bool areEqual = false;
 
     if(strlen(str1) == strlen(str2))
     {
         areEqual = true;
-        for(int i = 0; i < strlen(str1); i++)
+        for(uint32 i = 0; i < strlen(str1); i++)
         {
             if(str1[i] != str2[i])
             {
@@ -598,7 +602,6 @@ int main (int argc, char* argv[]) {
 
     uint8 renderType = 0;
 
-    bool randomCol = false;
     RGBcolor startColor = {};
     RGBcolor maxColor = {};
     maxColor.blue = 0xff;
@@ -644,8 +647,6 @@ int main (int argc, char* argv[]) {
 
             if(AreStringsEqual(argv[i], "-r"))
             {
-                randomCol = true;
-
                 startColor.blue = rand()%255;
                 startColor.green = rand()%255;
                 startColor.red = rand()%255;
@@ -655,7 +656,6 @@ int main (int argc, char* argv[]) {
                 maxColor.red = rand()%255;
             }
         }
-        randomCol = true;
     }
 
     if(renderType == 0)
