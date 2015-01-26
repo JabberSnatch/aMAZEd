@@ -18,8 +18,9 @@ typedef uint32_t uint32;
 typedef uint64_t uint64;
 
 static std::random_device rd;
-static std::minstd_rand0 engine(rd());
-static std::uniform_int_distribution<int> dist(0,3);
+static std::mt19937 engine(rd());
+static std::uniform_int_distribution<int> directionsDist(0, 3);
+static std::uniform_int_distribution<int> colorDist(0, 255);
 
 struct Coordinates
 {
@@ -56,7 +57,7 @@ int randomDir_usingRand() {
 }
 
 int randomDir_uniform() {
-    return dist(engine);
+    return directionsDist(engine);
 }
 
 int randomDir_weird() {
@@ -720,13 +721,13 @@ int main (int argc, char* argv[]) {
     {
         if(randomColor)
         {
-            startColor.blue = rand()%255;
-            startColor.green = rand()%255;
-            startColor.red = rand()%255;
+            startColor.blue = colorDist(engine);
+            startColor.green = colorDist(engine);
+            startColor.red = colorDist(engine);
 
-            maxColor.blue = rand()%255;
-            maxColor.green = rand()%255;
-            maxColor.red = rand()%255;
+            maxColor.blue = colorDist(engine);
+            maxColor.green = colorDist(engine);
+            maxColor.red = colorDist(engine);
         }
         printf("Building maze %d..\n", i);
         buildMaze(maze, randomDirFunction);
