@@ -17,6 +17,10 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
+static std::random_device rd;
+static std::minstd_rand0 engine(rd());
+static std::uniform_int_distribution<int> dist(0,3);
+
 struct Coordinates
 {
     uint32 X;
@@ -47,8 +51,12 @@ struct RGBcolor
     uint8 blue;
 };
 
+int randomDir_usingRand() {
+    return rand()%4;
+}
+
 int randomDir_uniform() {
-    return rand() % 4;
+    return dist(engine);
 }
 
 int randomDir_weird() {
@@ -180,7 +188,7 @@ void process_distanceFromStart(Maze &maze)
     maze.maxDistance = maxDistance;
 }
 
-void generate_recursiveBacktrack(Maze &maze)
+void generate_recursiveBacktrack(Maze &maze, int (*randomDir)())
 {
     std::stack<Coordinates> backtrack;
     Coordinates cursor = {};
@@ -217,7 +225,7 @@ void generate_recursiveBacktrack(Maze &maze)
                     next.Y >= maze.width ||
                     maze.cells[next.X][next.Y].visited )
             {
-                direction = randomDir_uniform();
+                direction = randomDir();
                 next = cursor;
 
                 switch(direction)
@@ -288,7 +296,7 @@ void generate_binaryTree(Maze &maze)
     }
 }
 
-void buildMaze(Maze &maze)
+void buildMaze(Maze &maze, int (*randomDir)())
 {
     maze.cells = (Cell **)malloc(sizeof(Cell*)*maze.height);
 
@@ -318,7 +326,7 @@ void buildMaze(Maze &maze)
     }
 
     // Generate the maze
-    generate_recursiveBacktrack(maze);
+    generate_recursiveBacktrack(maze, randomDir);
 
     process_distanceFromStart(maze);
 }
@@ -601,6 +609,9 @@ int main (int argc, char* argv[]) {
     const char* filename = "maze.bmp";
 
     uint8 renderType = 0;
+    int (*randomDirFunction)() = randomDir_uniform;
+
+    int mazeCount = 1;
 
     RGBcolor startColor = {};
     RGBcolor maxColor = {};
@@ -655,6 +666,20 @@ int main (int argc, char* argv[]) {
                 maxColor.green = rand()%255;
                 maxColor.red = rand()%255;
             }
+
+            if(AreStringsEqual(argv[i], "-d"))
+            {
+                i++;
+
+                if(AreStringsEqual(argv[i], "uniform"))
+                {
+                    randomDirFunction = randomDir_uniform;
+                }
+                else if(AreStringsEqual(argv[i], "rand"))
+                {
+                    randomDirFunction = randomDir_usingRand;
+                }
+            }
         }
     }
 
@@ -674,52 +699,55 @@ int main (int argc, char* argv[]) {
     maze.width = mazeWidth;
     maze.height = mazeHeight;
 
-    printf("Building the maze..\n");
-    buildMaze(maze);
-    printf("Maze built\n");
-
     SDL_Init(SDL_INIT_VIDEO);
+    for(int i = 0; i < mazeCount; i++)
+    {
+        printf("Building maze %d..\n", i);
+        buildMaze(maze, randomDirFunction);
+        printf("Maze built\n");
 
-    printf("Rendering the maze.. \n");
-    if((renderType & RENDER_WALLS) != 0)
-    {
-        mazeSurface = SDL_CreateRGBSurface(0,
-                                mazeWidth * 2 + 1,
-                                mazeHeight * 2 + 1,
-                                32,
-                                0xff000000,
-                                0x00ff0000,
-                                0x0000ff00,
-                                0x000000ff);
-        if((renderType & RENDER_SHADED) != 0)
+        printf("Rendering the maze.. \n");
+        if((renderType & RENDER_WALLS) != 0)
         {
-            renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
+            mazeSurface = SDL_CreateRGBSurface(0,
+                                    mazeWidth * 2 + 1,
+                                    mazeHeight * 2 + 1,
+                                    32,
+                                    0xff000000,
+                                    0x00ff0000,
+                                    0x0000ff00,
+                                    0x000000ff);
+            if((renderType & RENDER_SHADED) != 0)
+            {
+                renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
+            }
+            else
+            {
+                renderMaze_Walls(mazeSurface, maze);
+            }
         }
-        else
+        else if((renderType & RENDER_SHADED) != 0)
         {
-            renderMaze_Walls(mazeSurface, maze);
+            mazeSurface = SDL_CreateRGBSurface(0,
+                                    mazeWidth,
+                                    mazeHeight,
+                                    32,
+                                    0xff000000,
+                                    0x00ff0000,
+                                    0x0000ff00,
+                                    0x000000ff);
+            renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
         }
-    }
-    else if((renderType & RENDER_SHADED) != 0)
-    {
-        mazeSurface = SDL_CreateRGBSurface(0,
-                                mazeWidth,
-                                mazeHeight,
-                                32,
-                                0xff000000,
-                                0x00ff0000,
-                                0x0000ff00,
-                                0x000000ff);
-        renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
-    }
 
-    printf("Maze rendered\n");
-    printf("Saving the maze to a file..\n");
-    if(SDL_SaveBMP(mazeSurface, filename))
-    {
-        printf("Image couldn't be saved : \n%s\n", SDL_GetError());
+        printf("Maze rendered\n");
+        printf("Saving the maze to a file..\n");
+        
+        if(SDL_SaveBMP(mazeSurface, filename))
+        {
+            printf("Image couldn't be saved : \n%s\n", SDL_GetError());
+        }
+        printf("Maze saved\n\n");
     }
-    printf("Maze saved\n\n");
 
     destroyMaze(maze);
     SDL_FreeSurface(mazeSurface);
