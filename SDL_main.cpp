@@ -591,6 +591,20 @@ inline RGBcolor intToRGBColor(uint32 rawMaxColor)
     return result;
 }
 
+inline int FindLastDot(const char* filename)
+{
+    int lastDotIndex = -1;
+    for(int i = 0; i < (int)strlen(filename); i++)
+    {
+        if(filename[i] == '.')
+        {
+            lastDotIndex = i;
+        }
+    }
+
+    return lastDotIndex;
+}
+
 int main (int argc, char* argv[]) {
 
 /*
@@ -613,6 +627,7 @@ int main (int argc, char* argv[]) {
 
     int mazeCount = 1;
 
+    bool randomColor = false;
     RGBcolor startColor = {};
     RGBcolor maxColor = {};
     maxColor.blue = 0xff;
@@ -658,13 +673,7 @@ int main (int argc, char* argv[]) {
 
             if(AreStringsEqual(argv[i], "-r"))
             {
-                startColor.blue = rand()%255;
-                startColor.green = rand()%255;
-                startColor.red = rand()%255;
-
-                maxColor.blue = rand()%255;
-                maxColor.green = rand()%255;
-                maxColor.red = rand()%255;
+                randomColor = true;
             }
 
             if(AreStringsEqual(argv[i], "-d"))
@@ -679,6 +688,13 @@ int main (int argc, char* argv[]) {
                 {
                     randomDirFunction = randomDir_usingRand;
                 }
+            }
+
+            if(AreStringsEqual(argv[i], "-b"))
+            {
+                i++;
+
+                mazeCount = atoi(argv[i]);
             }
         }
     }
@@ -702,6 +718,16 @@ int main (int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO);
     for(int i = 0; i < mazeCount; i++)
     {
+        if(randomColor)
+        {
+            startColor.blue = rand()%255;
+            startColor.green = rand()%255;
+            startColor.red = rand()%255;
+
+            maxColor.blue = rand()%255;
+            maxColor.green = rand()%255;
+            maxColor.red = rand()%255;
+        }
         printf("Building maze %d..\n", i);
         buildMaze(maze, randomDirFunction);
         printf("Maze built\n");
@@ -741,8 +767,26 @@ int main (int argc, char* argv[]) {
 
         printf("Maze rendered\n");
         printf("Saving the maze to a file..\n");
-        
-        if(SDL_SaveBMP(mazeSurface, filename))
+
+        char filenameArray[512] = "";
+        if(mazeCount > 1)
+        {
+            char* tmpBuffer = (char*)filename;
+
+            int lastDotIndex = FindLastDot(filename);
+            if(lastDotIndex >= 0)
+            {
+                tmpBuffer[lastDotIndex] = '\0';
+            }
+
+            sprintf(filenameArray, "%s%d.bmp", tmpBuffer, i);
+        }
+        else
+        {
+            strcpy(filenameArray, filename);
+        }
+
+        if(SDL_SaveBMP(mazeSurface, filenameArray))
         {
             printf("Image couldn't be saved : \n%s\n", SDL_GetError());
         }
