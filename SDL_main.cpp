@@ -534,6 +534,52 @@ void renderMaze_Shaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGB
     }
 }
 
+void renderMaze_TwoShaded(SDL_Surface *buffer, Maze &maze, RGBcolor colors[4])
+{
+    uint32 maxDistance = maze.maxDistance;
+    uint32 gradiantThreshold = maxDistance / 2;
+
+        uint8 *row = (uint8 *)buffer->pixels;
+    for(uint32 X = 0;
+        X < maze.height;
+        ++X)
+    {
+        uint32 *pixel = (uint32 *)row;
+        for(uint32 Y = 0;
+            Y < maze.width;
+            ++Y)
+        {
+            RGBcolor* startColor;
+            RGBcolor* maxColor;
+
+            double coeff = 0.0f;
+            if(maze.cells[X][Y].distFromStart < gradiantThreshold)
+            {
+                coeff = (double)maze.cells[X][Y].distFromStart / (double)gradiantThreshold;
+                startColor = colors;
+                maxColor = colors + 1;
+            }
+            else
+            {
+                coeff = (double)(maze.cells[X][Y].distFromStart - gradiantThreshold) / (double)gradiantThreshold;
+                startColor = colors + 2;
+                maxColor = colors + 3;
+            }
+
+            RGBcolor cellColor;
+            cellColor.red = (startColor->red +
+                             (uint8)(coeff * (maxColor->red - startColor->red)))%256;
+            cellColor.green = (startColor->green +
+                               (uint8)(coeff * (maxColor->green - startColor->green)))%256;
+            cellColor.blue = (startColor->blue +
+                              (uint8)(coeff * (maxColor->blue - startColor->blue)))%256;
+
+            *pixel++ = ((cellColor.red << 24) | (cellColor.green << 16) | (cellColor.blue << 8));
+        }
+        row += buffer->pitch;
+    }
+}
+
 void renderGradiant(SDL_Surface *buffer)
 {
     uint8 *row = (uint8 *)buffer->pixels;
@@ -707,7 +753,6 @@ int main (int argc, char* argv[]) {
     mazeHeight = atoi(argv[2]);
     filename = argv[3];
 
-#if 1
     SDL_Surface* mazeSurface;
 
     Maze maze = {};
@@ -715,6 +760,8 @@ int main (int argc, char* argv[]) {
     maze.height = mazeHeight;
 
     SDL_Init(SDL_INIT_VIDEO);
+
+#if 0
     for(int i = 0; i < mazeCount; i++)
     {
         if(randomColor)
@@ -796,53 +843,54 @@ int main (int argc, char* argv[]) {
     }
 
 #else
+    RGBcolor colors[4] = {};
+#if 0
+    colors[0].blue = 0xf0;
+    colors[0].green = 0x10;
+    colors[0].red = 0x00;
+
+    colors[1].blue = 0xe4;
+    colors[1].green = 0xe4;
+    colors[1].red = 0x00;
+
+    colors[2].blue = 0xa6;
+    colors[2].green = 0x48;
+    colors[2].red = 0xa0;
+
+    colors[3].blue = 0x62;
+    colors[3].green = 0x10;
+    colors[3].red = 0x94;
+#else
+    colors[0].blue = colorDist(engine);
+    colors[0].green = colorDist(engine);
+    colors[0].red = colorDist(engine);
+
+    colors[1].blue = colorDist(engine);
+    colors[1].green = colorDist(engine);
+    colors[1].red = colorDist(engine);
+
+    colors[2].blue = colorDist(engine);
+    colors[2].green = colorDist(engine);
+    colors[2].red = colorDist(engine);
+
+    colors[3].blue = colorDist(engine);
+    colors[3].green = colorDist(engine);
+    colors[3].red = colorDist(engine);
+#endif
+
+    buildMaze(maze, randomDirFunction);
+
     mazeSurface = SDL_CreateRGBSurface(0,
-                                  1001,
-                                  1001,
-                                  32,
-                                  0xff000000,
-                                  0x00ff0000,
-                                  0x0000ff00,
-                                  0x000000ff);
+                                    mazeWidth,
+                                    mazeHeight,
+                                    32,
+                                    0xff000000,
+                                    0x00ff0000,
+                                    0x0000ff00,
+                                    0x000000ff);
 
-    Coordinates A = {}, B = {}, C = {};
-    A.X = 50;
-    A.Y = 20;
-    B.X = 99;
-    B.Y = 50;
-    C.X = 4000;
-    C.Y = 4000;
-
-    // TODO(samu): Make SDL_DrawLine commutative
-    //SDL_DrawLine(mazeSurface, A, B);
-    //SDL_DrawLine(mazeSurface, C, A);
-    //SDL_DrawLine(mazeSurface, B, C);
-    //SDL_DrawCircle(mazeSurface, C, 3000, 0xaaaaaa00);
-
-    Coordinates O = {};
-    O.X = 500;
-    O.Y = 500;
-    uint8 red = 0x00;
-    uint8 blue = 0xff;
-    uint8 green = 0x00;
-    int step = floor(255.0f / 85.0f);
-    for(int R = 0; R < 255; R++)
-    {
-        if(R < 85){
-            blue -= step;
-            green += step;
-        }
-        else if(R < 170){
-            green -= step;
-            red += step;
-        }
-        else {
-            red -= step;
-            blue += step;
-        }
-        SDL_DrawCircle(mazeSurface, O, R+10, ((red << 24) | (green << 16) | (blue << 8)));
-    }
-    SDL_SaveBMP(mazeSurface, "test_line.bmp");
+    renderMaze_TwoShaded(mazeSurface, maze, colors);
+    SDL_SaveBMP(mazeSurface, "test_twoshaded.bmp");
 #endif
 
     SDL_Quit();
