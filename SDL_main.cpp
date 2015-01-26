@@ -312,16 +312,15 @@ void buildMaze(Maze &maze, int (*randomDir)())
             ++Y)
         {
             Cell dummy = {};
-            for(int N = 0;
-                N < 4;
-                ++N)
+            dummy.distFromStart = 0;
+            dummy.visited = 0;
+            dummy.position.X = X;
+            dummy.position.Y = Y;
+            for(int N = 0; N < 4; ++N)
             {
                 dummy.neighbours[N] = NULL;
-                dummy.distFromStart = 0;
-                dummy.visited = 0;
-                dummy.position.X = X;
-                dummy.position.Y = Y;
             }
+
             maze.cells[X][Y] = dummy;
         }
     }
