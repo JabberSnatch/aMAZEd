@@ -660,8 +660,10 @@ int main (int argc, char* argv[]) {
     TODO (samu): command line options
         Done* -R [walls|shaded] : chose the way the maze is going to be displayed
         Done* -r : random
-        Done* -c <start> <end> : colorpicking
-        * -b <nb>: batch generation
+        Done* -c 2 <start> <end> : colorpicking
+        * -c 3 <first> <second> <third>
+        * -c 4 <first> <second> <third> <fourth>
+        Done* -b <nb>: batch generation
         * -v : verbose
  */
 
@@ -676,12 +678,10 @@ int main (int argc, char* argv[]) {
 
     int mazeCount = 1;
 
-    bool randomColor = false;
-    RGBcolor startColor = {};
-    RGBcolor maxColor = {};
-    maxColor.blue = 0xff;
-    maxColor.green = 0xff;
-    maxColor.red = 0xff;
+    bool randomColor = true;
+    int colorCount = 2;
+    RGBcolor colors[4] = {};
+    colors[1] = intToRGBColor(0xffffff);
 
     if(argc < 4) {
         printf("usage: aMAZEd <mazeWidth> <mazeHeight> <fileName>");
@@ -711,13 +711,14 @@ int main (int argc, char* argv[]) {
             if(AreStringsEqual(argv[i], "-c"))
             {
                 i++;
+                randomColor = false;
 
                 // TODO(samu): This currently supports only 0x000000 formated input
                 int rawStartColor = strtol(argv[i++], NULL, 0);
                 int rawMaxColor = strtol(argv[i], NULL, 0);
 
-                startColor = intToRGBColor(rawStartColor);
-                maxColor = intToRGBColor(rawMaxColor);
+                colors[0] = intToRGBColor(rawStartColor);
+                colors[1] = intToRGBColor(rawMaxColor);
             }
 
             if(AreStringsEqual(argv[i], "-r"))
@@ -765,18 +766,13 @@ int main (int argc, char* argv[]) {
 
     SDL_Init(SDL_INIT_VIDEO);
 
-#if 0
+#if 1
     for(int i = 0; i < mazeCount; i++)
     {
         if(randomColor)
         {
-            startColor.blue = colorDist(engine);
-            startColor.green = colorDist(engine);
-            startColor.red = colorDist(engine);
-
-            maxColor.blue = colorDist(engine);
-            maxColor.green = colorDist(engine);
-            maxColor.red = colorDist(engine);
+            MakeRandomColor(&colors[0]);
+            MakeRandomColor(&colors[1]);
         }
         printf("Building maze %d..\n", i);
         buildMaze(maze, randomDirFunction);
@@ -795,7 +791,7 @@ int main (int argc, char* argv[]) {
                                     0x000000ff);
             if((renderType & RENDER_SHADED) != 0)
             {
-                renderMaze_WallsShaded(mazeSurface, maze, startColor, maxColor);
+                renderMaze_WallsShaded(mazeSurface, maze, colors[0], colors[1]);
             }
             else
             {
@@ -812,7 +808,7 @@ int main (int argc, char* argv[]) {
                                     0x00ff0000,
                                     0x0000ff00,
                                     0x000000ff);
-            renderMaze_Shaded(mazeSurface, maze, startColor, maxColor);
+            renderMaze_Shaded(mazeSurface, maze, colors[0], colors[1]);
         }
 
         printf("Maze rendered\n");
@@ -847,9 +843,7 @@ int main (int argc, char* argv[]) {
     }
 
 #else
-    RGBcolor colors[4] = {};
-
-#if 1
+#if 0
     colors[0].blue = 0xff;
     colors[0].green = 0x00;
     colors[0].red = 0x00;
@@ -869,7 +863,6 @@ int main (int argc, char* argv[]) {
     MakeRandomColor(&colors[0]);
     MakeRandomColor(&colors[1]);
     MakeRandomColor(&colors[2]);
-    colors[2] = colors[1];
     MakeRandomColor(&colors[3]);
 #endif
 
