@@ -3,4 +3,9 @@ obj/*
 *.depend
 *.layout
 
+*sdf
+*.sln
+*.suo
+*.vcxproj*
+
 *.bmp
