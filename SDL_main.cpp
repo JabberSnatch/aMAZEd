@@ -431,7 +431,7 @@ void SDL_DrawOrientedLine(SDL_Surface *surface,
 }
 
 void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
-{
+{ 
     uint32 BLACK = 0x00000000;
     uint32 WHITE = 0xffffffff;
 
@@ -461,7 +461,7 @@ void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
 }
 
 void renderMaze_WallsShaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGBcolor maxColor)
-{
+{    
     uint32 BLACK = 0x00000000;
     uint32 COLOUR = 0xffffffff;
 
@@ -500,7 +500,8 @@ void renderMaze_WallsShaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor
     }
 }
 
-void renderMaze_Shaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGBcolor maxColor)
+void renderMaze_Shaded(SDL_Surface *buffer, 
+                       Maze &maze, RGBcolor startColor, RGBcolor maxColor)
 {
     uint32 maxDistance = maze.maxDistance;
 
@@ -658,12 +659,11 @@ int main (int argc, char* argv[]) {
 
 /*
     TODO (samu): command line options
-        Done* -R [walls|shaded] : chose the way the maze is going to be displayed
-        Done* -r : random
-        Done* -c 2 <start> <end> : colorpicking
-        * -c 3 <first> <second> <third>
-        * -c 4 <first> <second> <third> <fourth>
-        Done* -b <nb>: batch generation
+        Done* -R [walls|shaded] : 
+                    chose the way the maze is going to be displayed
+                    both can be selected by calling the option twice
+        Done* -c <n> [<color1> .. <colorn> | random] : colorpicking (n between 1 and 4)
+        Done* -b <n>: batch generation
         * -v : verbose
  */
 
@@ -711,19 +711,36 @@ int main (int argc, char* argv[]) {
             if(AreStringsEqual(argv[i], "-c"))
             {
                 i++;
-                randomColor = false;
+                colorCount = atoi(argv[i++]);
+                if(colorCount > 4)
+                {
+                    printf("Must specify a max of 4 colors\n");
+                    return 1;
+                }
+                
+                if(AreStringsEqual(argv[i], "random"))
+                {
+                    randomColor = true;
+                }
+                else
+                {
+                    randomColor = false;
 
+                    for(int j = 0; j < colorCount; j++)
+                    {
                 // TODO(samu): This currently supports only 0x000000 formated input
-                int rawStartColor = strtol(argv[i++], NULL, 0);
-                int rawMaxColor = strtol(argv[i], NULL, 0);
+                        int rawColor = strtol(argv[i + j], nullptr, 0);
+                        colors[j] = intToRGBColor(rawColor);
+                    }
 
-                colors[0] = intToRGBColor(rawStartColor);
-                colors[1] = intToRGBColor(rawMaxColor);
-            }
-
-            if(AreStringsEqual(argv[i], "-r"))
-            {
-                randomColor = true;
+                    i += colorCount-1;
+                }
+                
+                if(colorCount == 3)
+                {
+                    colors[3] = colors[2];
+                    colors[2] = colors[1];
+                }
             }
 
             if(AreStringsEqual(argv[i], "-d"))
@@ -758,21 +775,39 @@ int main (int argc, char* argv[]) {
     mazeHeight = atoi(argv[2]);
     filename = argv[3];
 
-    SDL_Surface* mazeSurface;
-
     Maze maze = {};
     maze.width = mazeWidth;
     maze.height = mazeHeight;
 
     SDL_Init(SDL_INIT_VIDEO);
 
+    uint32 mazeSurfaceWidth = maze.width;
+    uint32 mazeSurfaceHeight = maze.height;
+    if(renderType & RENDER_WALLS)
+    {
+        mazeSurfaceWidth = maze.width*2 + 1;
+        mazeSurfaceHeight = maze.height*2 + 1;
+    }
+
 #if 1
     for(int i = 0; i < mazeCount; i++)
     {
+        SDL_Surface* mazeSurface = {};
+        mazeSurface = SDL_CreateRGBSurface(0,
+                                           mazeSurfaceWidth,
+                                           mazeSurfaceHeight,
+                                           32,
+                                           0xff000000,
+                                           0x00ff0000,
+                                           0x0000ff00,
+                                           0x000000ff);
+
         if(randomColor)
         {
-            MakeRandomColor(&colors[0]);
-            MakeRandomColor(&colors[1]);
+            for(int j = 0; j < colorCount; j++)
+            {
+                MakeRandomColor(&colors[j]);
+            }
         }
         printf("Building maze %d..\n", i);
         buildMaze(maze, randomDirFunction);
@@ -781,14 +816,6 @@ int main (int argc, char* argv[]) {
         printf("Rendering the maze.. \n");
         if((renderType & RENDER_WALLS) != 0)
         {
-            mazeSurface = SDL_CreateRGBSurface(0,
-                                    mazeWidth * 2 + 1,
-                                    mazeHeight * 2 + 1,
-                                    32,
-                                    0xff000000,
-                                    0x00ff0000,
-                                    0x0000ff00,
-                                    0x000000ff);
             if((renderType & RENDER_SHADED) != 0)
             {
                 renderMaze_WallsShaded(mazeSurface, maze, colors[0], colors[1]);
@@ -800,15 +827,28 @@ int main (int argc, char* argv[]) {
         }
         else if((renderType & RENDER_SHADED) != 0)
         {
-            mazeSurface = SDL_CreateRGBSurface(0,
-                                    mazeWidth,
-                                    mazeHeight,
-                                    32,
-                                    0xff000000,
-                                    0x00ff0000,
-                                    0x0000ff00,
-                                    0x000000ff);
-            renderMaze_Shaded(mazeSurface, maze, colors[0], colors[1]);
+            switch(colorCount)
+            {
+                case 1:
+                case 2:
+                {
+                    renderMaze_Shaded(mazeSurface, maze, colors[0], colors[1]); 
+                } break;
+                case 3:
+                {
+                    renderMaze_TwoShaded(mazeSurface, 
+                                         maze, 
+                                         colors, 
+                                         maze.maxDistance / 2);
+                } break;
+                case 4:
+                {
+                    renderMaze_TwoShaded(mazeSurface, 
+                                         maze, 
+                                         colors,
+                                         maze.maxDistance / 2);
+                } break;
+            }
         }
 
         printf("Maze rendered\n");
