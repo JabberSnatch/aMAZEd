@@ -20,7 +20,8 @@ typedef uint64_t uint64;
 static std::random_device rd;
 static std::mt19937 engine(rd());
 static std::uniform_int_distribution<int> directionsDist(0, 3);
-static std::uniform_int_distribution<int> colorDist(0, 255);
+static std::uniform_int_distribution<int> colorComponentDist(0, 255);
+static std::uniform_int_distribution<int> colorDist(0, 0xffffff);
 
 struct Coordinates
 {
@@ -176,14 +177,6 @@ void process_distanceFromStart(Maze &maze)
             }
             backtrack.pop();
         }
-
-        /*for(uint32 i = 0; i < maze.height; i++) {
-            for (uint32 j = 0; j < maze.width; j++) {
-                printf("%d ", visitedCells[i][j]);
-            }
-            printf("\n");
-        }
-        printf("\n");*/
     }
 
     maze.maxDistance = maxDistance;
@@ -534,12 +527,14 @@ void renderMaze_Shaded(SDL_Surface *buffer, Maze &maze, RGBcolor startColor, RGB
     }
 }
 
-void renderMaze_TwoShaded(SDL_Surface *buffer, Maze &maze, RGBcolor colors[4])
+void renderMaze_TwoShaded(SDL_Surface *buffer, 
+                          Maze &maze, 
+                          RGBcolor colors[4], 
+                          uint32 gradiantThreshold)
 {
     uint32 maxDistance = maze.maxDistance;
-    uint32 gradiantThreshold = maxDistance / 2;
 
-        uint8 *row = (uint8 *)buffer->pixels;
+    uint8 *row = (uint8 *)buffer->pixels;
     for(uint32 X = 0;
         X < maze.height;
         ++X)
@@ -552,16 +547,19 @@ void renderMaze_TwoShaded(SDL_Surface *buffer, Maze &maze, RGBcolor colors[4])
             RGBcolor* startColor;
             RGBcolor* maxColor;
 
+            uint32 distanceFromStart = maze.cells[X][Y].distFromStart;
             double coeff = 0.0f;
-            if(maze.cells[X][Y].distFromStart < gradiantThreshold)
+            if(distanceFromStart < gradiantThreshold)
             {
-                coeff = (double)maze.cells[X][Y].distFromStart / (double)gradiantThreshold;
+                coeff = (double)distanceFromStart / 
+                        (double)gradiantThreshold;
                 startColor = colors;
                 maxColor = colors + 1;
             }
             else
             {
-                coeff = (double)(maze.cells[X][Y].distFromStart - gradiantThreshold) / (double)gradiantThreshold;
+                coeff = (double)(distanceFromStart - gradiantThreshold) / 
+                        (double)(maxDistance - gradiantThreshold);
                 startColor = colors + 2;
                 maxColor = colors + 3;
             }
@@ -625,15 +623,21 @@ bool AreStringsEqual(const char* str1, const char* str2)
 
 
 // NOTE(samu); rawMaxColor is AA RR GG BB formated
-inline RGBcolor intToRGBColor(uint32 rawMaxColor)
+inline RGBcolor intToRGBColor(uint32 value)
 {
     RGBcolor result = {};
 
-    result.blue = (rawMaxColor & 0x000000ff);
-    result.green = (rawMaxColor & 0x0000ff00) >> 8;
-    result.red = (rawMaxColor & 0x00ff0000) >> 16;
+    result.blue = (value & 0x000000ff);
+    result.green = (value & 0x0000ff00) >> 8;
+    result.red = (value & 0x00ff0000) >> 16;
 
     return result;
+}
+
+inline void MakeRandomColor(RGBcolor* color)
+{
+    uint32 value = colorDist(engine);
+    *color = intToRGBColor(value);
 }
 
 inline int FindLastDot(const char* filename)
@@ -844,38 +848,29 @@ int main (int argc, char* argv[]) {
 
 #else
     RGBcolor colors[4] = {};
-#if 0
-    colors[0].blue = 0xf0;
-    colors[0].green = 0x10;
+
+#if 1
+    colors[0].blue = 0xff;
+    colors[0].green = 0x00;
     colors[0].red = 0x00;
 
-    colors[1].blue = 0xe4;
-    colors[1].green = 0xe4;
+    colors[1].blue = 0xff;
+    colors[1].green = 0x88;
     colors[1].red = 0x00;
 
-    colors[2].blue = 0xa6;
-    colors[2].green = 0x48;
-    colors[2].red = 0xa0;
+    colors[2].blue = 0x00;
+    colors[2].green = 0xff;
+    colors[2].red = 0x00;
 
-    colors[3].blue = 0x62;
-    colors[3].green = 0x10;
-    colors[3].red = 0x94;
+    colors[3].blue = 0x20;
+    colors[3].green = 0x50;
+    colors[3].red = 0xaa;
 #else
-    colors[0].blue = colorDist(engine);
-    colors[0].green = colorDist(engine);
-    colors[0].red = colorDist(engine);
-
-    colors[1].blue = colorDist(engine);
-    colors[1].green = colorDist(engine);
-    colors[1].red = colorDist(engine);
-
-    colors[2].blue = colorDist(engine);
-    colors[2].green = colorDist(engine);
-    colors[2].red = colorDist(engine);
-
-    colors[3].blue = colorDist(engine);
-    colors[3].green = colorDist(engine);
-    colors[3].red = colorDist(engine);
+    MakeRandomColor(&colors[0]);
+    MakeRandomColor(&colors[1]);
+    MakeRandomColor(&colors[2]);
+    colors[2] = colors[1];
+    MakeRandomColor(&colors[3]);
 #endif
 
     buildMaze(maze, randomDirFunction);
@@ -889,7 +884,8 @@ int main (int argc, char* argv[]) {
                                     0x0000ff00,
                                     0x000000ff);
 
-    renderMaze_TwoShaded(mazeSurface, maze, colors);
+    uint32 gradiantThreshold = (maze.maxDistance / 2);
+    renderMaze_TwoShaded(mazeSurface, maze, colors, gradiantThreshold);
     SDL_SaveBMP(mazeSurface, "test_twoshaded.bmp");
 #endif
 
