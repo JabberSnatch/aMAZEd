@@ -461,12 +461,15 @@ void renderMaze_Walls(SDL_Surface *buffer, Maze &maze)
 }
 
 uint32 process_linearInterpolation(uint32 value, uint32 maxValue,
-                                  RGBcolor startColor, RGBcolor maxColor)
+                                  RGBcolor* startColor, RGBcolor* maxColor)
 { 
         double coeff = (double)value/ (double)maxValue;
-        uint8 R = (startColor.red + (uint8)(coeff * (maxColor.red - startColor.red)))%256;
-        uint8 G = (startColor.green + (uint8)(coeff * (maxColor.green - startColor.green)))%256;
-        uint8 B = (startColor.blue + (uint8)(coeff * (maxColor.blue - startColor.blue)))%256;
+        uint8 R = (startColor->red + 
+                  (uint8)(coeff * (maxColor->red - startColor->red)))%256;
+        uint8 G = (startColor->green + 
+                  (uint8)(coeff * (maxColor->green - startColor->green)))%256;
+        uint8 B = (startColor->blue + 
+                  (uint8)(coeff * (maxColor->blue - startColor->blue)))%256;
 
         uint32 COLOUR = ((R << 24) | (G << 16) | (B << 8));
         return COLOUR;
@@ -494,8 +497,8 @@ void renderMaze_WallsShaded(SDL_Surface *buffer, Maze &maze,
         {
             COLOUR = process_linearInterpolation(maze.cells[X][Y].distFromStart,
                                                  maxDistance,
-                                                 startColor,
-                                                 maxColor);
+                                                 &startColor,
+                                                 &maxColor);
 
             *pixel++ = BLACK;
             *pixel++ = (maze.cells[X][Y].neighbours[0] == NULL) ? BLACK : COLOUR;
@@ -527,8 +530,8 @@ void renderMaze_Shaded(SDL_Surface *buffer,
         {
             *pixel++ = process_linearInterpolation(maze.cells[X][Y].distFromStart,
                                                    maxDistance,
-                                                   startColor,
-                                                   maxColor);
+                                                   &startColor,
+                                                   &maxColor);
         }
         row += buffer->pitch;
     }
@@ -580,6 +583,41 @@ void renderMaze_TwoShaded(SDL_Surface *buffer,
                               (uint8)(coeff * (maxColor->blue - startColor->blue)))%256;
 
             *pixel++ = ((cellColor.red << 24) | (cellColor.green << 16) | (cellColor.blue << 8));
+        }
+        row += buffer->pitch;
+    }
+}
+
+void render_nShaded(SDL_Surface* buffer, Maze& maze,
+                    RGBcolor* colors, uint32 colorCount)
+{
+    uint32 maxDistance = maze.maxDistance;
+    uint32 segmentCount = colorCount / 2;
+    uint32 segmentLength = maxDistance / segmentCount;
+
+    uint8 *row = (uint8 *)buffer->pixels;
+    for(uint32 X = 0;
+        X < maze.height;
+        ++X)
+    {
+        uint32 *pixel = (uint32 *)row;
+        for(uint32 Y = 0;
+            Y < maze.width;
+            ++Y)
+        {
+            uint32 distanceFromStart = maze.cells[X][Y].distFromStart; 
+            uint32 segmentNumber = distanceFromStart / segmentLength;
+
+            uint32 normalisedValue = distanceFromStart % segmentLength;
+            uint32 maxValue = segmentLength;
+
+            RGBcolor* startColor = colors + 2*segmentNumber;
+            RGBcolor* maxColor = colors + 2*segmentNumber + 1;
+
+            *pixel++ = process_linearInterpolation(normalisedValue,
+                                                   maxValue,
+                                                   startColor,
+                                                   maxColor);
         }
         row += buffer->pitch;
     }
@@ -795,7 +833,7 @@ int main (int argc, char* argv[]) {
         mazeSurfaceHeight = maze.height*2 + 1;
     }
 
-#if 1
+#if 0
     for(int i = 0; i < mazeCount; i++)
     {
         SDL_Surface* mazeSurface = {};
@@ -894,32 +932,45 @@ int main (int argc, char* argv[]) {
     }
 
 #else
-#if 0
-    colors[0].blue = 0xff;
-    colors[0].green = 0x00;
-    colors[0].red = 0x00;
+    RGBcolor testColors[6];
 
-    colors[1].blue = 0xff;
-    colors[1].green = 0x88;
-    colors[1].red = 0x00;
+#if 1
+    testColors[0].blue = 0xff;
+    testColors[0].green = 0x00;
+    testColors[0].red = 0x00;
 
-    colors[2].blue = 0x00;
-    colors[2].green = 0xff;
-    colors[2].red = 0x00;
+    testColors[1].blue = 0xff;
+    testColors[1].green = 0x00;
+    testColors[1].red = 0xff;
 
-    colors[3].blue = 0x20;
-    colors[3].green = 0x50;
-    colors[3].red = 0xaa;
+    testColors[2].blue = 0x00;
+    testColors[2].green = 0xff;
+    testColors[2].red = 0x00;
+
+    testColors[3].blue = 0xff;
+    testColors[3].green = 0xff;
+    testColors[3].red = 0x00;
+
+    testColors[4].blue = 0x00;
+    testColors[4].green = 0x00;
+    testColors[4].red = 0xff;
+    
+    testColors[5].blue = 0x00;
+    testColors[5].green = 0xff;
+    testColors[5].red = 0xff;
 #else
-    MakeRandomColor(&colors[0]);
-    MakeRandomColor(&colors[1]);
-    MakeRandomColor(&colors[2]);
-    MakeRandomColor(&colors[3]);
+
+    MakeRandomColor(&testColors[0]);
+    MakeRandomColor(&testColors[1]);
+    MakeRandomColor(&testColors[2]);
+    MakeRandomColor(&testColors[3]);
+    MakeRandomColor(&testColors[4]);
+    MakeRandomColor(&testColors[5]);
 #endif
 
     buildMaze(maze, randomDirFunction);
 
-    mazeSurface = SDL_CreateRGBSurface(0,
+    SDL_Surface* mazeSurface = SDL_CreateRGBSurface(0,
                                     mazeWidth,
                                     mazeHeight,
                                     32,
@@ -928,9 +979,8 @@ int main (int argc, char* argv[]) {
                                     0x0000ff00,
                                     0x000000ff);
 
-    uint32 gradiantThreshold = (maze.maxDistance / 2);
-    renderMaze_TwoShaded(mazeSurface, maze, colors, gradiantThreshold);
-    SDL_SaveBMP(mazeSurface, "test_twoshaded.bmp");
+    render_nShaded(mazeSurface, maze, testColors, 3);
+    SDL_SaveBMP(mazeSurface, "test_nshaded.bmp");
 #endif
 
     SDL_Quit();
