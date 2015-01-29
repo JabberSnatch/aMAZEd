@@ -723,8 +723,8 @@ int main (int argc, char* argv[]) {
     int mazeCount = 1;
 
     bool randomColor = true;
-    int colorCount = 2;
-    RGBcolor colors[4] = {};
+    uint32 colorCount = 2;
+    RGBcolor* colors = (RGBcolor*)malloc(sizeof(RGBcolor)*colorCount);
     colors[1] = intToRGBColor(0xffffff);
 
     if(argc < 4) {
@@ -756,11 +756,8 @@ int main (int argc, char* argv[]) {
             {
                 i++;
                 colorCount = atoi(argv[i++]);
-                if(colorCount > 4)
-                {
-                    printf("Must specify a max of 4 colors\n");
-                    return 1;
-                }
+				free(colors);
+				colors = (RGBcolor*)malloc(sizeof(RGBcolor)*colorCount);
                 
                 if(AreStringsEqual(argv[i], "random"))
                 {
@@ -770,17 +767,17 @@ int main (int argc, char* argv[]) {
                 {
                     randomColor = false;
 
-                    for(int j = 0; j < colorCount; j++)
+                    for(uint32 j = 0; j < colorCount; j++)
                     {
                 // TODO(samu): This currently supports only 0x000000 formated input
                         int rawColor = strtol(argv[i + j], nullptr, 0);
                         colors[j] = intToRGBColor(rawColor);
                     }
 
-                    if(colorCount == 3)
+                    if(colorCount%2)
                     {
-                        colors[3] = colors[2];
-                        colors[2] = colors[1];
+                        colors[colorCount-1] = colors[colorCount-2];
+                        colors[colorCount-2] = colors[colorCount-3];
                     }
 
                     i += colorCount-1;
@@ -833,7 +830,7 @@ int main (int argc, char* argv[]) {
         mazeSurfaceHeight = maze.height*2 + 1;
     }
 
-#if 0
+#if 1
     for(int i = 0; i < mazeCount; i++)
     {
         SDL_Surface* mazeSurface = {};
@@ -848,14 +845,14 @@ int main (int argc, char* argv[]) {
 
         if(randomColor)
         {
-            for(int j = 0; j < colorCount; j++)
+            for(uint32 j = 0; j < colorCount; j++)
             {
                 MakeRandomColor(&colors[j]);
             }
-            if(colorCount == 3)
+            if(colorCount%2)
             {
-                colors[3] = colors[2];
-                colors[2] = colors[1];
+				colors[colorCount - 1] = colors[colorCount - 2];
+				colors[colorCount - 2] = colors[colorCount - 3];
             }
         }
         printf("Building maze %d..\n", i);
@@ -878,6 +875,8 @@ int main (int argc, char* argv[]) {
         {
             switch(colorCount)
             {
+				case 0:
+					break;
                 case 1:
                 case 2:
                 {
@@ -897,6 +896,13 @@ int main (int argc, char* argv[]) {
                                          colors,
                                          maze.maxDistance / 2);
                 } break;
+				default:
+				{
+					render_nShaded(mazeSurface,
+						maze,
+						colors,
+						colorCount);
+				}
             }
         }
 
